@@ -1,15 +1,16 @@
 import Wrapper from "@/components/Wrapper";
-import React, { useEffect, useState, useContext } from "react";
-import { useRouter } from "next/router";
-import useSWR, { mutate } from "swr";
+import React, { useEffect, useState, createContext } from "react";
+import { fetchDataFromApi } from "@/utils/api";
 import ProductCard from "@/components/ProductCard";
 import Filter from "@/components/Filter";
 import Sort from "@/components/Sort";
-import { fetchDataFromApi } from "@/utils/api";
+import { useRouter } from "next/router";
+import useSWR, { mutate } from "swr";
+
 const maxResult = 9;
 
 // Create a new context for storing the filtered products
-const FilteredProductsContext = React.createContext([]);
+const FilteredProductsContext = createContext([]);
 
 const AllProduct = ({ category, products }) => {
   const [selectedRamSizes, setSelectedRamSizes] = useState([]);
@@ -20,7 +21,7 @@ const AllProduct = ({ category, products }) => {
     setPageIndex(1);
   }, [query]);
 
-  const [filteredProducts, setFilteredProducts] = useState(products.data);
+  let [filteredProducts, setFilteredProducts] = useState(products.data);
 
   const handleRamFilter = (ramSize) => {
     let updatedRamSizes;
@@ -107,34 +108,6 @@ const AllProduct = ({ category, products }) => {
     );
   };
 
-  // Use the filtered products from the context
-  const { data, error, isValidating } = useSWR(
-    `/api/products?populate=*&pagination[page]=${pageIndex}&pagination[pageSize]=${maxResult}`,
-    fetchDataFromApi,
-    {
-      initialData: filteredProducts, // Use the filtered products as initial data
-    }
-  );
-
-  useEffect(() => {
-    // Prevent page reloading when navigating back
-    const handleBeforePopState = () => {
-      // Restore the filtered products in the context
-      setFilteredProducts(data?.data || []);
-
-      // Prevent reloading by returning false
-      return false;
-    };
-
-    // Add the beforePopState event listener
-    events.on("beforePopState", handleBeforePopState);
-
-    // Clean up the event listener on component unmount
-    return () => {
-      events.off("beforePopState", handleBeforePopState);
-    };
-  }, [events, data]);
-
   return (
     <Wrapper>
       <Sort />
@@ -150,41 +123,11 @@ const AllProduct = ({ category, products }) => {
             />
           </div>
           <div className="w-3/4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 my-14 px-20 md:px-20">
-              {data?.data?.map((product) => (
-                <ProductCard key={product?.id} data={product} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 my-14 px-5 md:px-0">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} data={product} />
               ))}
             </div>
-            {data?.meta?.pagination?.total > maxResult && (
-              <div className="flex gap-3 items-center justify-center my-16 md:my-0">
-                <button
-                  className={`rounded py-2 px-4 bg-black text-white disabled:bg-gray-200 disabled:text-gray-500`}
-                  disabled={pageIndex === 1}
-                  onClick={() => setPageIndex(pageIndex - 1)}
-                >
-                  Previous
-                </button>
-                <span className="font-bold">{`${pageIndex} of ${
-                  products && products.meta.pagination.pageCount
-                }`}</span>
-                <button
-                  className={`rounded py-2 px-4 bg-black text-white disabled:bg-gray-200 disabled:text-gray-500`}
-                  disabled={
-                    pageIndex === (products && products.meta.pagination.pageCount)
-                  }
-                  onClick={() => setPageIndex(pageIndex + 1)}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-            {isValidating && (
-              <div className="absolute top-0 left-0 w-full h-full bg-white/[0.5] flex flex-col gap-5 justify-center items-center">
-                <img src="/logo.svg" width={150} />
-                <span className="text-2xl font-medium">Loading...</span>
-              </div>
-            )}
-            <br />
           </div>
         </div>
       </FilteredProductsContext.Provider>
